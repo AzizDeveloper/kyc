@@ -1,49 +1,70 @@
 package dev.aziz.task2kyc.service;
 
 import dev.aziz.task2kyc.client.KycClient;
-import dev.aziz.task2kyc.client.NotificationClient;
 import dev.aziz.task2kyc.dto.KycResult;
-import dev.aziz.task2kyc.dto.NotificationResult;
-import dev.aziz.task2kyc.dto.SmsRequest;
 import dev.aziz.task2kyc.entity.Application;
 import dev.aziz.task2kyc.entity.ApplicationStatus;
+import dev.aziz.task2kyc.entity.OutboxEntity;
+import dev.aziz.task2kyc.entity.OutboxStatus;
 import dev.aziz.task2kyc.repository.ApplicationRepository;
+import dev.aziz.task2kyc.repository.OutboxMessageRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.UUID;
 
+@Service
+@RequiredArgsConstructor
 public class ApplicationService {
+
     private final ApplicationRepository applicationRepository;
+    private final OutboxMessageRepository outboxMessageRepository;
     private final KycClient kycClient;
-    private final NotificationClient notificationClient;
+    private final TransactionTemplate transactionTemplate;
 
-    public ApplicationService(ApplicationRepository applicationRepository,
-                                  KycClient kycClient,
-                                  NotificationClient notificationClient) {
-        this.applicationRepository = applicationRepository;
-        this.kycClient = kycClient;
-        this.notificationClient = notificationClient;
-    }
-
-    public Application completeKyc(UUID applicationId, UUID clientId) {
-        Application application = applicationRepository.findById(applicationId);
-        if (!ApplicationStatus.KYC_PENDING.equals(application.status())) {
+    public Application completeKyc(UUID applicationId) {
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new RuntimeException("Application with id: " + applicationId + " not found."));
+        if (!ApplicationStatus.KYC_PENDING.equals(application.getStatus())) {
             throw new RuntimeException("Application is not KYC pending.");
         }
-        KycResult kycResult = kycClient.fetchStatus(application.kycSessionId());
+        KycResult kycResult = kycClient.fetchStatus(application.getKycSessionId());
         if (!kycResult.completed()) {
             throw new RuntimeException("KYC status is not completed.");
         }
-        Application newApplication = new Application(application.id(), application.clientId(),
-                ApplicationStatus.KYC_COMPLETED, application.kycSessionId());
-        Application updated = applicationRepository.update(newApplication);
 
-        NotificationResult notificationResult = notificationClient.sendSms(
-                new SmsRequest(
-                        newApplication.clientId().toString(), "Your application have been completed."
-                )
-        );
+        Application updated = transactionTemplate.execute(status -> {
+            Application application1 = applicationRepository.findByIdForUpdate(applicationId)
+                    .orElseThrow(() -> new RuntimeException("Application with id: " + applicationId + " not found."));
 
+            if (!ApplicationStatus.KYC_PENDING.equals(application1.getStatus())) {
+                throw new RuntimeException("Application is not KYC pending.");
+            }
+            application1.setStatus(ApplicationStatus.KYC_COMPLETED);
+            OutboxEntity outboxEntity = new OutboxEntity(
+                    "Application",
+                    application1.getId(),
+                    "ApplicationUpdated",
+                    convertToJson(application1),
+                    application1.getClientId().toString(),
+                    OutboxStatus.INITIAL
+            );
+            outboxMessageRepository.save(outboxEntity);
+
+            return application1;
+        });
 
         return updated;
+    }
+
+    private String convertToJson(Application message) {
+        ObjectMapper mapper = new ObjectMapper();
+        return mapper.writeValueAsString(message);
+    }
+
+    public Application save(Application application) {
+        return applicationRepository.save(application);
     }
 }

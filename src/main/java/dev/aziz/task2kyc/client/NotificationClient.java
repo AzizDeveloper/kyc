@@ -6,4 +6,5 @@ import dev.aziz.task2kyc.dto.SmsRequest;
 public interface NotificationClient {
 
     NotificationResult sendSms(SmsRequest request);
+
 }
