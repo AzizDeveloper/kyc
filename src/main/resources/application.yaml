@@ -6,13 +6,13 @@ spring:
     name: task2kyc
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/applications_db
+    url: jdbc:postgresql://localhost:5432/kycdb
     username: user
     password: password
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
@@ -21,3 +21,11 @@ spring:
 application:
   blocking:
     lease-duration: 30s
+  batch-size: 20
+
+outbox:
+  poll-delay: 5000
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG

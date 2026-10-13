@@ -23,6 +23,7 @@ public class ApplicationService {
     private final OutboxMessageRepository outboxMessageRepository;
     private final KycClient kycClient;
     private final TransactionTemplate transactionTemplate;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public Application completeKyc(UUID applicationId) {
         Application application = applicationRepository.findById(applicationId)
@@ -60,8 +61,7 @@ public class ApplicationService {
     }
 
     private String convertToJson(Application message) {
-        ObjectMapper mapper = new ObjectMapper();
-        return mapper.writeValueAsString(message);
+        return OBJECT_MAPPER.writeValueAsString(message);
     }
 
     public Application save(Application application) {

@@ -1,0 +1,37 @@
+services:
+
+  k6-kyc:
+    image: grafana/k6:latest
+    container_name: k6-kyc
+    volumes:
+      - ./k6:/scripts
+    working_dir: /scripts
+    command: run /scripts/index.js
+    environment:
+      BASE_URL: http://host.docker.internal:8085
+
+  postgres-kyc:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: kycdb
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-password}"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - kyc-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d taskdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+volumes:
+  postgres-data:
+
+networks:
+  kyc-network:
+    driver: bridge

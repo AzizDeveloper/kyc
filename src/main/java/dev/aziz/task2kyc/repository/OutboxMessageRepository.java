@@ -14,8 +14,6 @@ import java.util.List;
 @Repository
 public interface OutboxMessageRepository extends JpaRepository<OutboxEntity,Long> {
 
-    List<OutboxEntity> findByPublished(boolean b);
-
     @Query(value = "SELECT * FROM outbox WHERE status = 'INITIAL' OR (status = 'PROCESSING' AND locked_until < :now) " +
             "ORDER BY id LIMIT :batchSize FOR UPDATE SKIP LOCKED", nativeQuery = true)
     List<OutboxEntity> findClaimableRows(@Param("now") Instant now, @Param("batchSize") int batchSize);

@@ -1,6 +1,8 @@
 package dev.aziz.task2kyc.entity;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -28,6 +30,7 @@ public class OutboxEntity {
     private String messageType;
     private String payload;
     private String clientId;
+    @Enumerated(EnumType.STRING)
     private OutboxStatus status;
     private Instant lockedUntil;
 

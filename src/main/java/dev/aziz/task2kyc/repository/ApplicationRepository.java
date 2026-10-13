@@ -34,6 +34,4 @@ public interface ApplicationRepository extends JpaRepository<Application, UUID> 
             """)
     Optional<Application> findByIdForUpdate(UUID id);
 
-//    Application update(Application application);
-
 }

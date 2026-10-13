@@ -22,21 +22,21 @@ public class OutboxScheduler {
 
     @Value("${application.blocking.lease-duration}")
     private Duration blockingLease;
-    @Value("${application.blocking.lease-duration:20}")
+    @Value("${application.batch-size:20}")
     private int batchSize;
 
     private final TransactionTemplate transactionTemplate;
     private final OutboxMessageRepository outboxRepository;
-    private final NotificationClient publisher;
+    private final NotificationClient notificationClient;
 
     public OutboxScheduler(
             TransactionTemplate transactionTemplate,
             OutboxMessageRepository outboxRepository,
-            NotificationClient publisher
+            NotificationClient notificationClient
     ) {
         this.transactionTemplate = transactionTemplate;
         this.outboxRepository = outboxRepository;
-        this.publisher = publisher;
+        this.notificationClient = notificationClient;
     }
 
     @Scheduled(fixedDelayString = "${outbox.poll-delay:5000}")
@@ -73,19 +73,19 @@ public class OutboxScheduler {
     private void processSingleEntity(OutboxEntity entity) {
         try {
             NotificationResult notificationResult =
-                    publisher.sendSms(new SmsRequest(entity.getClientId(), "KYC notification sent."));
-            if (notificationResult instanceof  NotificationResult.Success) {
+                    notificationClient.sendSms(new SmsRequest(entity.getClientId(), "KYC notification sent."));
+            if (notificationResult instanceof NotificationResult.Success) {
                 transactionTemplate.executeWithoutResult(status -> {
                     outboxRepository.markAsSent(entity.getId());
                 });
-            } else if (notificationResult instanceof  NotificationResult.ValidationError) {
+            } else if (notificationResult instanceof NotificationResult.ValidationError) {
                 String reason = ((NotificationResult.ValidationError) notificationResult).reason();
                 transactionTemplate.executeWithoutResult(status -> {
                     outboxRepository.markAsDead(entity.getId(), reason);
                 });
                 log.error(reason);
             }
-        }  catch (RuntimeException e) {
+        } catch (Exception e) {
             log.error(e.getMessage(), e);
         }
     }
